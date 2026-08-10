@@ -4,11 +4,16 @@
 
 # BACKTEST
 # LIVE
+#scalping
 
 BACKTEST = "BACKTEST"
 LIVE = "LIVE"
 
 MODE = BACKTEST
+
+
+
+MAX_ENTRY_DEVIATION = 0.025
 
 # =====================================
 # STRATEGY
@@ -16,8 +21,9 @@ MODE = BACKTEST
 
 # ema_pullback
 # crt
+#scalping
 
-STRATEGY = "crt"
+STRATEGY = "scalping"
 
 # =====================================
 # MARKET
@@ -31,7 +37,7 @@ TIMEFRAME = "M5"
 # BACKTEST SETTINGS
 # =====================================
 
-BARS = 1000
+BARS = 20000
 
 WARMUP = 100
 

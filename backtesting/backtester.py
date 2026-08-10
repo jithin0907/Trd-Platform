@@ -91,7 +91,7 @@ class Backtester:
 
         htf_df = None
 
-        if self.strategy_name == "crt":
+        if self.strategy_name in ["crt", "scalping"]:
 
             htf_df = self.provider.get_market_data(
                 symbol=self.symbol,
@@ -109,7 +109,7 @@ class Backtester:
             # Prepare strategy-specific data
             # ---------------------------------------
 
-            if self.strategy_name == "crt":
+            if self.strategy_name in ["crt", "scalping"]:
 
                 current_time = market.iloc[-1]["time"]
 
@@ -121,23 +121,18 @@ class Backtester:
                     index += 1
                     continue
 
-                data = {
-                    "htf": htf_history,
-                    "entry": market
-                }
+                if self.strategy_name == "crt":
 
-                print("=" * 80)
-                print("BACKTEST")
-                print("ENTRY LAST TIME :", data["entry"].iloc[-1]["time"])
-                print("ENTRY LAST CLOSE:", data["entry"].iloc[-1]["close"])
+                    data = {
+                        "htf": htf_history,
+                        "entry": market
+                    }
 
-                print("HTF LAST TIME   :", data["htf"].iloc[-1]["time"])
-                print("HTF LAST CLOSE  :", data["htf"].iloc[-1]["close"])
+                else:  # scalping
 
-                print("ENTRY BARS :", len(data["entry"]))
-                print("HTF BARS   :", len(data["htf"]))
-                print("=" * 80)
-
+                    data = {
+                        "entry": market
+                    }
 
                 signal = strategy.analyze(
                     self.symbol,
@@ -151,8 +146,7 @@ class Backtester:
                     self.symbol,
                     self.timeframe,
                     market
-                )
-
+                )           
             if signal.signal:
 
                 signals += 1

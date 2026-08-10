@@ -1,4 +1,5 @@
 import MetaTrader5 as mt5
+from datetime import datetime
 
 from config.settings import *
 
@@ -11,6 +12,10 @@ class TradeExecutor:
     # ----------------------------------------
     # Place Trade
     # ----------------------------------------
+
+    print("\n" + "=" * 60)
+    print("CUSTOM TRADE EXECUTOR IS RUNNING")
+    print("=" * 60)
 
     def place_trade(self, signal):
 
@@ -53,26 +58,101 @@ class TradeExecutor:
             print("Unable to get market tick.")
             return None
 
-        # Determine order type
+        # ----------------------------------------
+        # Determine Order Type
+        # ----------------------------------------
+
+        current_price = tick.ask if signal.direction == "BUY" else tick.bid
+
+        entry_difference = abs(current_price - signal.entry)
+
+        print("\n" + "=" * 60)
+        print("ENTRY CHECK")
+        print("=" * 60)
+        print(f"Signal Entry     : {signal.entry}")
+        print(f"Current Price    : {current_price}")
+        print(f"Difference       : {round(entry_difference, 3)}")
+        print(f"Allowed          : {MAX_ENTRY_DEVIATION}")
+
         if signal.direction == "BUY":
 
-            order_type = mt5.ORDER_TYPE_BUY
-            price = tick.ask
+            if entry_difference <= MAX_ENTRY_DEVIATION:
+
+                print("Using MARKET BUY")
+
+                order_type = mt5.ORDER_TYPE_BUY
+                action = mt5.TRADE_ACTION_DEAL
+                price = current_price
+
+            else:
+
+                print("Using BUY LIMIT")
+
+                order_type = mt5.ORDER_TYPE_BUY_LIMIT
+                action = mt5.TRADE_ACTION_PENDING
+                price = signal.entry
 
         elif signal.direction == "SELL":
 
-            order_type = mt5.ORDER_TYPE_SELL
-            price = tick.bid
+            if entry_difference <= MAX_ENTRY_DEVIATION:
+
+                print("Using MARKET SELL")
+
+                order_type = mt5.ORDER_TYPE_SELL
+                action = mt5.TRADE_ACTION_DEAL
+                price = current_price
+
+            else:
+
+                print("Using SELL LIMIT")
+
+                order_type = mt5.ORDER_TYPE_SELL_LIMIT
+                action = mt5.TRADE_ACTION_PENDING
+                price = signal.entry
 
         else:
 
             print("Invalid trade direction.")
             return None
 
+        print("=" * 60)
+
+# ----------------------------------------
+        # Validate Pending Order Price
+        # ----------------------------------------
+
+        if order_type == mt5.ORDER_TYPE_BUY_LIMIT:
+
+            if price >= current_price:
+
+                print("=" * 60)
+                print("LIMIT ORDER VALIDATION FAILED")
+                print(f"Current Price : {current_price}")
+                print(f"Order Price   : {price}")
+                print(f"Order Type    : {order_type}")
+                print("=" * 60)
+                return None
+                
+
+        elif order_type == mt5.ORDER_TYPE_SELL_LIMIT:
+
+            if price <= current_price:
+
+                print("=" * 60)
+                print("LIMIT ORDER VALIDATION FAILED")
+                print(f"Current Price : {current_price}")
+                print(f"Order Price   : {price}")
+                print(f"Order Type    : {order_type}")
+                print("=" * 60)
+                return None  
+
+
+        
+
         # Build order request
         request = {
 
-            "action": mt5.TRADE_ACTION_DEAL,
+            "action": action,
 
             "symbol": symbol,
 
@@ -94,7 +174,7 @@ class TradeExecutor:
 
             "type_time": mt5.ORDER_TIME_GTC,
 
-            "type_filling": mt5.ORDER_FILLING_IOC
+            "type_filling": mt5.ORDER_FILLING_FOK
 
         }
 
@@ -106,9 +186,12 @@ class TradeExecutor:
         print("ORDER REQUEST")
         print("=" * 60)
 
+        print(f"Order Time     : {datetime.now()}")
         print(f"Direction      : {signal.direction}")
         print(f"Signal Entry   : {signal.entry}")
-        print(f"Market Price   : {price}")
+        print(f"Current Price  : {current_price}")
+        print(f"Order Price    : {price}")
+        print(f"Order Type     : {order_type}")
         print(f"Stop Loss      : {signal.stop_loss}")
         print(f"Take Profit    : {signal.take_profit}")
 
@@ -135,11 +218,30 @@ class TradeExecutor:
 
         print("=" * 60)
 
+
+        with open("logs/trade_execution_log.txt", "a") as f:
+         f.write("\n================ ORDER REQUEST ================\n")
+         f.write(f"Order Time     : {datetime.now()}\n")
+         f.write(f"Direction      : {signal.direction}\n")
+         f.write(f"Signal Entry   : {signal.entry}\n")
+         f.write(f"Current Price  : {current_price}\n")
+         f.write(f"Order Price    : {price}\n")
+         f.write(f"Order Type     : {order_type}\n")
+         f.write(f"Stop Loss      : {signal.stop_loss}\n")
+         f.write(f"Take Profit    : {signal.take_profit}\n")
+         f.write(f"Risk           : {risk}\n")
+         f.write(f"Reward         : {reward}\n")
+         f.write(f"Calculated RR  : {round(rr, 2)}\n")
+         f.write("===============================================\n")
+
         # ----------------------------------------
         # Send Order
         # ----------------------------------------
-
+        print("About to send order...")
         result = mt5.order_send(request)
+        
+        print("Order sent.")
+        print(result)
 
         # Check result
         if result is None:
@@ -192,3 +294,40 @@ class TradeExecutor:
         print("=" * 60)
 
         return result
+
+    def cancel_pending_orders(self):
+
+        orders = mt5.orders_get()
+
+        if orders is None:
+            return
+
+        for order in orders:
+
+            # Only this EA's orders
+            if order.magic != MAGIC_NUMBER:
+                continue
+
+            # Cancel only LIMIT pending orders
+            if order.type not in (
+                mt5.ORDER_TYPE_BUY_LIMIT,
+                mt5.ORDER_TYPE_SELL_LIMIT
+            ):
+                continue
+
+            request = {
+
+                "action": mt5.TRADE_ACTION_REMOVE,
+                "order": order.ticket
+
+            }
+
+            result = mt5.order_send(request)
+
+            if result.retcode == mt5.TRADE_RETCODE_DONE:
+
+                print(f"Pending Order Cancelled : {order.ticket}")
+
+            else:
+
+                print(f"Failed to Cancel : {order.ticket}")

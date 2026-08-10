@@ -1,6 +1,7 @@
 from providers.data_provider import DataProvider
 from engine.strategy_manager import StrategyManager
 from execution.trade_executor import TradeExecutor
+import MetaTrader5 as mt5
 
 from config.settings import *
 
@@ -38,7 +39,7 @@ class LiveEngine:
 
             "H4",
 
-            500
+            200
 
         )
 
@@ -81,7 +82,7 @@ class LiveEngine:
 
                 "H4",
 
-                500
+                200
 
             )
 
@@ -89,7 +90,12 @@ class LiveEngine:
 
             if current_htf_bar != last_htf_bar:
 
-                print("New H4 Candle Detected")
+                print("=" * 60)
+                print("NEW H4 CANDLE DETECTED")
+                print("Cancelling Old Pending Orders...")
+                print("=" * 60)
+
+                self.executor.cancel_pending_orders()
 
                 htf_df = latest_htf
 
@@ -155,7 +161,25 @@ class LiveEngine:
 
                 print(signal.direction)
 
-                self.executor.place_trade(signal)
+                print("\n" + "=" * 60)
+                print("LIVE ENGINE")
+                print("=" * 60)
+                print(f"Signal Direction : {signal.direction}")
+                print(f"Signal Entry     : {signal.entry}")
+                print(f"Signal SL        : {signal.stop_loss}")
+                print(f"Signal TP        : {signal.take_profit}")
+
+                tick = mt5.symbol_info_tick(signal.symbol)
+
+                if tick:
+                 print(f"Current Bid      : {tick.bid}")
+                 print(f"Current Ask      : {tick.ask}")
+                 print(f"Ask Difference   : {abs(tick.ask - signal.entry):.5f}")
+                 print(f"Bid Difference   : {abs(tick.bid - signal.entry):.5f}")
+
+                 print("=" * 60)
+
+                 self.executor.place_trade(signal)
 
             else:
 

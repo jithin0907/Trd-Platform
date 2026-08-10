@@ -1,5 +1,6 @@
 from strategies.ema_pullback.strategy import EMAPullbackStrategy
 from strategies.crt.strategy import CRTStrategy
+from strategies.scalping.strategy import ScalpingStrategy
 
 
 
@@ -36,4 +37,9 @@ StrategyManager.register(
 StrategyManager.register(
     "crt",
     CRTStrategy
+)
+
+StrategyManager.register(
+    "scalping",
+    ScalpingStrategy
 )

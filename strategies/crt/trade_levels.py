@@ -51,11 +51,20 @@ class TradeLevels:
         # BUY
         # ---------------------------------
 
+        # ---------------------------------
+        # BUY
+        # ---------------------------------
+
         if sweep.direction == "BUY":
 
             entry = sweep.close
 
+            print("\n========== TRADE LEVELS ==========")
+            print(f"Sweep Time     : {sweep.candle_time}")
+            print(f"Entry Price    : {entry}")
+
             sl = sweep.low - buffer
+            print(f"Stop Loss      : {sl}")
 
             if TP_MODE == "OPPOSITE_RANGE":
 
@@ -74,6 +83,8 @@ class TradeLevels:
 
                 tp = htf_range.high
 
+            print(f"Take Profit    : {tp}")
+
         # ---------------------------------
         # SELL
         # ---------------------------------
@@ -82,7 +93,12 @@ class TradeLevels:
 
             entry = sweep.close
 
+            print("\n========== TRADE LEVELS ==========")
+            print(f"Sweep Time     : {sweep.candle_time}")
+            print(f"Entry Price    : {entry}")
+
             sl = sweep.high + buffer
+            print(f"Stop Loss      : {sl}")
 
             if TP_MODE == "OPPOSITE_RANGE":
 
@@ -101,6 +117,8 @@ class TradeLevels:
 
                 tp = htf_range.low
 
+            print(f"Take Profit    : {tp}")
+
         # ---------------------------------
         # Risk Reward
         # ---------------------------------
@@ -112,6 +130,11 @@ class TradeLevels:
 
         if risk != 0:
             rr = reward / risk
+
+        print(f"Risk           : {risk}")
+        print(f"Reward         : {reward}")
+        print(f"Risk Reward    : {rr}")
+        print("==================================")
 
         return {
 

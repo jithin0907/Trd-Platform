@@ -61,6 +61,17 @@ class SweepDetector:
 
             if low < htf_range.low and close > htf_range.low:
 
+
+                # print("\n========== SWEEP DETECTED ==========")
+                # print(f"Time       : {candle_time}")
+                # print(f"Direction  : BUY")
+                # print(f"Open       : {open_price}")
+                # print(f"High       : {high}")
+                # print(f"Low        : {low}")
+                # print(f"Close      : {close}")
+                # print(f"HTF Low    : {htf_range.low}")
+                # print("====================================")
+
                 return Sweep(
                     valid=True,
                     direction="BUY",
@@ -79,6 +90,16 @@ class SweepDetector:
             # =====================================
 
             if high > htf_range.high and close < htf_range.high:
+
+                # print("\n========== SWEEP DETECTED ==========")
+                # print(f"Time       : {candle_time}")
+                # print(f"Direction  : SELL")
+                # print(f"Open       : {open_price}")
+                # print(f"High       : {high}")
+                # print(f"Low        : {low}")
+                # print(f"Close      : {close}")
+                # print(f"HTF High   : {htf_range.high}")
+                # print("====================================")
 
                 return Sweep(
                     valid=True,
