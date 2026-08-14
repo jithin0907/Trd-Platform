@@ -256,10 +256,18 @@ class TradeExecutor:
             f.write("\nMT5 RESPONSE\n")
             f.write(f"RetCode        : {result.retcode}\n")
 
-            if result.retcode == mt5.TRADE_RETCODE_DONE:
+            if result.retcode in (
+                mt5.TRADE_RETCODE_DONE,
+                mt5.TRADE_RETCODE_PLACED
+            ):
                 f.write(f"Order Ticket   : {result.order}\n")
                 f.write(f"Deal Ticket    : {result.deal}\n")
-                f.write("Status         : SUCCESS\n")
+
+                if result.retcode == mt5.TRADE_RETCODE_PLACED:
+                    f.write("Status         : PENDING ORDER PLACED\n")
+                else:
+                    f.write("Status         : SUCCESS\n")
+
             else:
                 f.write("Status         : FAILED\n")
                 f.write(f"Result         : {result}\n")
@@ -272,7 +280,10 @@ class TradeExecutor:
 
         
 
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
+        if result.retcode not in (
+            mt5.TRADE_RETCODE_DONE,
+            mt5.TRADE_RETCODE_PLACED
+        ):
 
             print("Trade Failed")
             print("RetCode :", result.retcode)
@@ -283,7 +294,15 @@ class TradeExecutor:
         # Success
         print()
         print("=" * 60)
-        print("TRADE EXECUTED")
+
+        if result.retcode == mt5.TRADE_RETCODE_PLACED:
+
+            print("PENDING ORDER PLACED")
+
+        else:
+
+            print("TRADE EXECUTED")
+
         print("=" * 60)
         print(f"Ticket    : {result.order}")
         print(f"Symbol    : {symbol}")
@@ -295,7 +314,7 @@ class TradeExecutor:
 
         return result
 
-    def cancel_pending_orders(self):
+    def cancel_pending_orders(self, symbol):
 
         orders = mt5.orders_get()
 
@@ -306,6 +325,10 @@ class TradeExecutor:
 
             # Only this EA's orders
             if order.magic != MAGIC_NUMBER:
+                continue
+
+            # Only cancel orders for this symbol
+            if order.symbol != symbol:
                 continue
 
             # Cancel only LIMIT pending orders
@@ -326,8 +349,14 @@ class TradeExecutor:
 
             if result.retcode == mt5.TRADE_RETCODE_DONE:
 
-                print(f"Pending Order Cancelled : {order.ticket}")
+                print(
+                    f"Pending Order Cancelled : "
+                    f"{symbol} : {order.ticket}"
+                )
 
             else:
 
-                print(f"Failed to Cancel : {order.ticket}")
+                print(
+                    f"Failed to Cancel : "
+                    f"{symbol} : {order.ticket}"
+                )

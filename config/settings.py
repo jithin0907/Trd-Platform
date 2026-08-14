@@ -9,7 +9,7 @@
 BACKTEST = "BACKTEST"
 LIVE = "LIVE"
 
-MODE = BACKTEST
+MODE = LIVE
 
 
 
@@ -23,21 +23,23 @@ MAX_ENTRY_DEVIATION = 0.025
 # crt
 #scalping
 
-STRATEGY = "scalping"
+STRATEGY = "crt"
 
 # =====================================
 # MARKET
 # =====================================
 
-SYMBOL = "XAGUSD"
-
+SYMBOLS = [
+    "XAGUSD",
+    "XAUUSD"
+]
 TIMEFRAME = "M5"
 
 # =====================================
 # BACKTEST SETTINGS
 # =====================================
 
-BARS = 20000
+BARS = 3000
 
 WARMUP = 100
 

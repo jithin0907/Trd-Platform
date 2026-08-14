@@ -27,162 +27,205 @@ class LiveEngine:
 
         strategy = StrategyManager.load(STRATEGY)
 
-        last_bar_time = None
-
         # ------------------------------------
-        # Load H4 Data Once
+        # State for each symbol
         # ------------------------------------
 
-        htf_df = self.provider.get_market_data(
+        last_bar_time = {}
+        last_htf_bar = {}
+        htf_data = {}
 
-            SYMBOL,
+        # ------------------------------------
+        # Load initial H4 data for each symbol
+        # ------------------------------------
 
-            "H4",
+        for symbol in SYMBOLS:
 
-            200
+            htf_df = self.provider.get_market_data(
+                symbol,
+                "H4",
+                200
+            )
 
-        )
+            if htf_df is None or len(htf_df) == 0:
 
-        last_htf_bar = htf_df.iloc[-1]["time"]
+                print(f"Unable to load H4 data for {symbol}")
+                continue
+
+            htf_data[symbol] = htf_df
+            last_htf_bar[symbol] = htf_df.iloc[-1]["time"]
+            last_bar_time[symbol] = None
+
+            # Make sure symbol is available in MT5
+            mt5.symbol_select(symbol, True)
+
+            print("----------------------------------------")
+            print("Symbol Loaded :", symbol)
+            print("H4 Last Time  :", last_htf_bar[symbol])
+            print("----------------------------------------")
+
+        # ------------------------------------
+        # Main Loop
+        # ------------------------------------
 
         while True:
 
-            # -------------------------------
-            # Get latest market data
-            # -------------------------------
+            for symbol in SYMBOLS:
 
-            entry_df = self.provider.get_market_data(
-                SYMBOL,
-                TIMEFRAME,
-                BARS
-            )
+                # ------------------------------------
+                # Skip symbol if H4 data unavailable
+                # ------------------------------------
 
-            
+                if symbol not in htf_data:
+                    continue
 
-            if entry_df is None or len(entry_df) == 0:
-                time.sleep(1)
-                continue
+                # ------------------------------------
+                # Get latest M5 data
+                # ------------------------------------
 
-            current_bar = entry_df.iloc[-1]["time"]
+                entry_df = self.provider.get_market_data(
+                    symbol,
+                    TIMEFRAME,
+                    BARS
+                )
 
-            # Wait until a new candle closes
-            if current_bar == last_bar_time:
-                time.sleep(1)
-                continue
+                if entry_df is None or len(entry_df) == 0:
+                    continue
 
-            last_bar_time = current_bar
+                current_bar = entry_df.iloc[-1]["time"]
 
-            # ------------------------------------
-            # Refresh H4 Only If New H4 Candle
-            # ------------------------------------
+                # ------------------------------------
+                # Process only when a new M5 candle appears
+                # ------------------------------------
 
-            latest_htf = self.provider.get_market_data(
+                if current_bar == last_bar_time[symbol]:
+                    continue
 
-                SYMBOL,
-
-                "H4",
-
-                200
-
-            )
-
-            current_htf_bar = latest_htf.iloc[-1]["time"]
-
-            if current_htf_bar != last_htf_bar:
-
-                print("=" * 60)
-                print("NEW H4 CANDLE DETECTED")
-                print("Cancelling Old Pending Orders...")
-                print("=" * 60)
-
-                self.executor.cancel_pending_orders()
-
-                htf_df = latest_htf
-
-                last_htf_bar = current_htf_bar
-
-            print("\n----------------------------------------")
-            print("New Candle :", current_bar)
-            print("----------------------------------------")
-
-            # -------------------------------
-            # Analyze Strategy
-            # -------------------------------
-
-
-            # ------------------------------------
-            # Prepare Strategy Data
-            # ------------------------------------
-
-            data = {
-
-                "htf": htf_df,
-
-                "entry": entry_df
-
-            }
-
-
-            print("=" * 80)
-            print("LIVE")
-            print("ENTRY LAST TIME :", data["entry"].iloc[-1]["time"])
-            print("ENTRY LAST CLOSE:", data["entry"].iloc[-1]["close"])
-
-            print("HTF LAST TIME   :", data["htf"].iloc[-1]["time"])
-            print("HTF LAST CLOSE  :", data["htf"].iloc[-1]["close"])
-
-            print("ENTRY BARS :", len(data["entry"]))
-            print("HTF BARS   :", len(data["htf"]))
-            print("=" * 80)
-
-            # ------------------------------------
-            # Analyze Strategy
-            # ------------------------------------
-
-            signal = strategy.analyze(
-
-                symbol=SYMBOL,
-
-                timeframe=TIMEFRAME,
-
-                data=data
-
-            )
-
-            # -------------------------------
-            # Execute Trade
-            # -------------------------------
-
-            if signal.signal:
-
-                print()
-
-                print("BUY/SELL SIGNAL FOUND")
-
-                print(signal.direction)
+                last_bar_time[symbol] = current_bar
 
                 print("\n" + "=" * 60)
-                print("LIVE ENGINE")
+                print(f"NEW CANDLE : {symbol}")
+                print(f"Time       : {current_bar}")
                 print("=" * 60)
-                print(f"Signal Direction : {signal.direction}")
-                print(f"Signal Entry     : {signal.entry}")
-                print(f"Signal SL        : {signal.stop_loss}")
-                print(f"Signal TP        : {signal.take_profit}")
 
-                tick = mt5.symbol_info_tick(signal.symbol)
+                # ------------------------------------
+                # Refresh H4 data
+                # ------------------------------------
 
-                if tick:
-                 print(f"Current Bid      : {tick.bid}")
-                 print(f"Current Ask      : {tick.ask}")
-                 print(f"Ask Difference   : {abs(tick.ask - signal.entry):.5f}")
-                 print(f"Bid Difference   : {abs(tick.bid - signal.entry):.5f}")
+                latest_htf = self.provider.get_market_data(
+                    symbol,
+                    "H4",
+                    200
+                )
 
-                 print("=" * 60)
+                if latest_htf is None or len(latest_htf) == 0:
+                    continue
 
-                 self.executor.place_trade(signal)
+                current_htf_bar = latest_htf.iloc[-1]["time"]
 
-            else:
+                # ------------------------------------
+                # New H4 candle
+                # ------------------------------------
 
-                print("No Trade")
+                if current_htf_bar != last_htf_bar[symbol]:
+
+                    print("=" * 60)
+                    print(f"NEW H4 CANDLE : {symbol}")
+                    print("Cancelling Old Pending Orders...")
+                    print("=" * 60)
+
+                    self.executor.cancel_pending_orders(symbol)
+
+                    htf_data[symbol] = latest_htf
+                    last_htf_bar[symbol] = current_htf_bar
+
+                # ------------------------------------
+                # Prepare strategy data
+                # ------------------------------------
+
+                data = {
+
+                    "htf": htf_data[symbol],
+
+                    "entry": entry_df
+
+                }
+
+                # ------------------------------------
+                # Debug information
+                # ------------------------------------
+
+                print("=" * 80)
+                print("LIVE")
+                print("SYMBOL          :", symbol)
+                print("ENTRY LAST TIME :", data["entry"].iloc[-1]["time"])
+                print("ENTRY LAST CLOSE:", data["entry"].iloc[-1]["close"])
+
+                print("HTF LAST TIME   :", data["htf"].iloc[-1]["time"])
+                print("HTF LAST CLOSE  :", data["htf"].iloc[-1]["close"])
+
+                print("ENTRY BARS      :", len(data["entry"]))
+                print("HTF BARS        :", len(data["htf"]))
+                print("=" * 80)
+
+                # ------------------------------------
+                # Analyze strategy
+                # ------------------------------------
+
+                signal = strategy.analyze(
+
+                    symbol=symbol,
+
+                    timeframe=TIMEFRAME,
+
+                    data=data
+
+                )
+
+                # ------------------------------------
+                # Execute trade
+                # ------------------------------------
+
+                if signal.signal:
+
+                    print()
+                    print("=" * 60)
+                    print("BUY/SELL SIGNAL FOUND")
+                    print("=" * 60)
+
+                    print("Symbol           :", signal.symbol)
+                    print("Direction        :", signal.direction)
+                    print("Signal Entry     :", signal.entry)
+                    print("Signal SL        :", signal.stop_loss)
+                    print("Signal TP        :", signal.take_profit)
+
+                    tick = mt5.symbol_info_tick(signal.symbol)
+
+                    if tick:
+
+                        print("Current Bid      :", tick.bid)
+                        print("Current Ask      :", tick.ask)
+
+                        print(
+                            "Ask Difference   :",
+                            f"{abs(tick.ask - signal.entry):.5f}"
+                        )
+
+                        print(
+                            "Bid Difference   :",
+                            f"{abs(tick.bid - signal.entry):.5f}"
+                        )
+
+                    print("=" * 60)
+
+                    self.executor.place_trade(signal)
+
+                else:
+
+                    print(f"No Trade : {symbol}")
+
+            # ------------------------------------
+            # Small delay before next scan
+            # ------------------------------------
 
             time.sleep(1)
