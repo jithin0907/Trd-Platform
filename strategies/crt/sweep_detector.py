@@ -7,6 +7,13 @@ above or below the Higher Timeframe range.
 
 from models.sweep import Sweep
 
+# ----------------------------------------
+# Sweep Quality Filters
+# ----------------------------------------
+
+MIN_SWEEP_DISTANCE = 0.03      # Minimum sweep beyond HTF level
+MIN_WICK_BODY_RATIO = 1.5      # Wick must be 1.5x candle body
+
 
 class SweepDetector:
 
@@ -55,11 +62,30 @@ class SweepDetector:
             close = float(candle["close"])
             candle_time = candle["time"]
 
+            # ----------------------------------------
+            # Candle Measurements
+            # ----------------------------------------
+
+            body = abs(close - open_price)
+
+            upper_wick = high - max(open_price, close)
+            lower_wick = min(open_price, close) - low            
+
             # =====================================
             # BUY Sweep
             # =====================================
 
             if low < htf_range.low and close > htf_range.low:
+
+                sweep_distance = htf_range.low - low
+
+                # Reject tiny sweeps
+                if sweep_distance < MIN_SWEEP_DISTANCE:
+                    continue
+
+                # Reject weak rejection candles
+                if body > 0 and (lower_wick / body) < MIN_WICK_BODY_RATIO:
+                    continue
 
 
                 # print("\n========== SWEEP DETECTED ==========")
@@ -90,6 +116,16 @@ class SweepDetector:
             # =====================================
 
             if high > htf_range.high and close < htf_range.high:
+
+                sweep_distance = high - htf_range.high
+
+                # Reject tiny sweeps
+                if sweep_distance < MIN_SWEEP_DISTANCE:
+                    continue
+
+                # Reject weak rejection candles
+                if body > 0 and (upper_wick / body) < MIN_WICK_BODY_RATIO:
+                    continue
 
                 # print("\n========== SWEEP DETECTED ==========")
                 # print(f"Time       : {candle_time}")
